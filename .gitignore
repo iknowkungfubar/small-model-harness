@@ -6,3 +6,15 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# AI Agent Artifacts (SECRETS - must never be in public repos)
+AGENTS.md
+CLAUDE.md
+CONTEXT.md
+MEMORY.md
+SKILL.md
+.cursorrules
+.windsurfrules
+.cursor/
+.hermes/
+.windsurf/
