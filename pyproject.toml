@@ -1,0 +1,54 @@
+[project]
+name = "small-model-harness"
+version = "1.0.0"
+description = "Defensive harness for 1B-12B local LLMs in production agentic workflows"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Joshua Barker", email = "josh@turintechsolutions.com" },
+]
+
+dependencies = [
+    "fastmcp>=3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["mcp-server", "hermes-plugin"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "D100",  # Missing docstring in public module
+    "D101",  # Missing docstring in public class
+    "D102",  # Missing docstring in public method
+    "D103",  # Missing docstring in public function
+    "D104",  # Missing docstring in public package
+    "D107",  # Missing docstring in __init__
+    "S301",  # pickle usage
+    "INP001",  # implicit namespace package
+    "ANN101", "ANN102", "ANN201", "ANN202", "ANN204", "ANN401",  # annotation strictness
+    "FIX002",  # TODO allowed
+    "TD002",  # missing author in TODO
+    "TD003",  # missing issue in TODO
+    "COM812",  # trailing comma handled by formatter
+]
+
+[[tool.ruff.lint.per-file-ignores]]
+"tests/**" = ["S101", "SLF001", "D", "ANN", "ARG"]
+
+[tool.ruff.format]
+preview = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

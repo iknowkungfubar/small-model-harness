@@ -1,0 +1,7 @@
+name: small-model-harness
+version: 1.0.0
+description: Five-layer defensive harness for small local LLMs (1B-12B). Pre-call schema validation, doom loop detection, 3-state circuit breaker, context budget enforcement, and model tier routing. Closes the 5-13% reliability gap between local and frontier models.
+hooks:
+  - pre_tool_call
+  - post_tool_call
+  - pre_verify
