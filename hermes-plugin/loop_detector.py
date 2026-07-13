@@ -1,5 +1,4 @@
-"""
-Loop Detector — doom loop pattern detection for small models.
+"""Loop Detector — doom loop pattern detection for small models.
 
 Uses a 4-signal ensemble to detect repetitive loop behaviors that
 disproportionately affect small (<12B) models. Based on Liquid AI's
@@ -16,10 +15,10 @@ Detection signals:
 
 from __future__ import annotations
 
-import re
 import logging
+import re
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal
 
 logger = logging.getLogger(__name__)
@@ -32,9 +31,19 @@ logger = logging.getLogger(__name__)
 # correlate with model entering doom loops under greedy sampling.
 # Qwen3.5-4B exhibited 22.9% loop rate on hard problems with these tokens.
 TRIGGER_TOKENS: set[str] = {
-    "the", "So", "Alternatively", "Wait", "But",
-    "However", "Meanwhile", "Additionally", "Furthermore",
-    "Thus", "Therefore", "Consequently", "Nevertheless",
+    "the",
+    "So",
+    "Alternatively",
+    "Wait",
+    "But",
+    "However",
+    "Meanwhile",
+    "Additionally",
+    "Furthermore",
+    "Thus",
+    "Therefore",
+    "Consequently",
+    "Nevertheless",
 }
 
 # Pattern for repeated short token sequences (hallucination loop signature)
@@ -49,19 +58,20 @@ REPETITIVE_APOLOGY_PATTERN = re.compile(
 # ---------------------------------------------------------------------------
 
 LoopPattern = Literal[
-    "tool_slam",       # Same tool + same args repeatedly
-    "token_grind",     # Output n-gram overlap > threshold
-    "stuck_retry",     # Same error returned repeatedly
-    "hallucination",   # Plausible but wrong output repeated
-    "apology_loop",    # "I'm sorry, I can't..." repeated
+    "tool_slam",  # Same tool + same args repeatedly
+    "token_grind",  # Output n-gram overlap > threshold
+    "stuck_retry",  # Same error returned repeatedly
+    "hallucination",  # Plausible but wrong output repeated
+    "apology_loop",  # "I'm sorry, I can't..." repeated
     "trigger_spiral",  # High frequency of trigger tokens
-    "none",            # No loop detected
+    "none",  # No loop detected
 ]
 
 
 @dataclass
 class CallRecord:
     """Record of a single tool call for loop detection."""
+
     tool_name: str
     args: dict | None = None
     error: str | None = None
@@ -71,11 +81,12 @@ class CallRecord:
 @dataclass
 class LoopScore:
     """Ensemble loop detection score."""
-    overall: float           # 0.0-1.0, 1.0 = almost certainly looping
-    ngram_overlap: float     # 0.0-1.0
-    diversity_ratio: float   # 0.0-1.0, lower = less diverse
+
+    overall: float  # 0.0-1.0, 1.0 = almost certainly looping
+    ngram_overlap: float  # 0.0-1.0
+    diversity_ratio: float  # 0.0-1.0, lower = less diverse
     content_stagnation: float  # 0.0-1.0
-    trigger_frequency: float   # 0.0-1.0
+    trigger_frequency: float  # 0.0-1.0
     pattern: LoopPattern = "none"
 
     def should_block(self, threshold: float = 0.75) -> bool:
@@ -108,8 +119,7 @@ class LoopDetector:
     def record(self, call: CallRecord) -> None:
         """Record a tool call in the sliding window."""
         self._calls.append(call)
-        logger.debug("LoopDetector: recorded %s (window now %d)",
-                      call.tool_name, len(self._calls))
+        logger.debug("LoopDetector: recorded %s (window now %d)", call.tool_name, len(self._calls))
 
     def score(self) -> LoopScore:
         """Run ensemble scoring against the current window.
@@ -121,8 +131,11 @@ class LoopDetector:
         calls = list(self._calls)
         if len(calls) < 2:
             return LoopScore(
-                overall=0.0, ngram_overlap=0.0, diversity_ratio=1.0,
-                content_stagnation=0.0, trigger_frequency=0.0,
+                overall=0.0,
+                ngram_overlap=0.0,
+                diversity_ratio=1.0,
+                content_stagnation=0.0,
+                trigger_frequency=0.0,
             )
 
         signals = {
@@ -134,10 +147,10 @@ class LoopDetector:
 
         # Weighted ensemble — weights tuned for small model failure modes
         weights = {
-            "ngram_overlap": 0.35,        # Strongest signal for tool loops
-            "diversity_ratio": 0.25,       # Low diversity = stuck behavior
-            "content_stagnation": 0.25,    # Same output = hallucination loop
-            "trigger_frequency": 0.15,     # Trigger tokens = early warning
+            "ngram_overlap": 0.35,  # Strongest signal for tool loops
+            "diversity_ratio": 0.25,  # Low diversity = stuck behavior
+            "content_stagnation": 0.25,  # Same output = hallucination loop
+            "trigger_frequency": 0.15,  # Trigger tokens = early warning
         }
 
         overall = sum(signals[k] * weights[k] for k in weights)
@@ -193,7 +206,7 @@ class LoopDetector:
         if not calls:
             return 0.0
 
-        unique_tools = len(set(c.tool_name for c in calls))
+        unique_tools = len({c.tool_name for c in calls})
         total_calls = len(calls)
 
         # Diversity ratio: 1.0 = all calls are the same tool

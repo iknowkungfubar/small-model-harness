@@ -1,5 +1,4 @@
-"""
-Context Budget Manager — token tracking and budget enforcement.
+"""Context Budget Manager — token tracking and budget enforcement.
 
 Enforces the 1/3 effective window rule based on Chroma Research
 findings (Hong, Troynikov, Huber, Jul 2025): ALL 18 tested models
@@ -14,7 +13,7 @@ events, and provides forced compaction when thresholds are exceeded.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -25,9 +24,9 @@ logger = logging.getLogger(__name__)
 
 # Default budget ratios
 EFFECTIVE_CAPACITY_RATIO = 3  # stated_window // 3 = effective capacity
-COMPACTION_THRESHOLD = 0.80   # Compaction recommended at 80% utilization
-WARN_THRESHOLD = 0.65         # Warning at 65% utilization
-CRITICAL_THRESHOLD = 0.90     # Block new work at 90% utilization
+COMPACTION_THRESHOLD = 0.80  # Compaction recommended at 80% utilization
+WARN_THRESHOLD = 0.65  # Warning at 65% utilization
+CRITICAL_THRESHOLD = 0.90  # Block new work at 90% utilization
 
 # Rough token estimation (chars / 4)
 CHARS_PER_TOKEN = 4
@@ -44,6 +43,7 @@ STEP_OVERHEAD_TOKENS = 250  # System prompt + instructions per step
 @dataclass
 class BudgetState:
     """Current budget state for a session."""
+
     total_used_tokens: int = 0
     step_count: int = 0
     compaction_count: int = 0
@@ -61,6 +61,7 @@ class BudgetState:
 @dataclass
 class BudgetCheckResult:
     """Result of checking a tool call against the budget."""
+
     allowed: bool
     message: str = ""
     utilization: float = 0.0
@@ -87,6 +88,7 @@ class ContextBudgetManager:
     Args:
         model_window: The model's stated context window in tokens.
                       Default 32000 (Qwen3-9B effective limit).
+
     """
 
     def __init__(self, model_window: int = 32000):
@@ -116,6 +118,7 @@ class ContextBudgetManager:
 
         Returns:
             Estimated tokens consumed by this step.
+
         """
         step_tokens = STEP_OVERHEAD_TOKENS  # Base overhead
 
@@ -133,13 +136,14 @@ class ContextBudgetManager:
         self._state.total_used_tokens += step_tokens
         self._state.step_count += 1
 
-        if step_tokens > self._state.largest_step_tokens:
-            self._state.largest_step_tokens = step_tokens
+        self._state.largest_step_tokens = max(self._state.largest_step_tokens, step_tokens)
 
         logger.debug(
             "Budget: step %d +%d tokens (total: %d/%d, %.0f%%)",
-            self._state.step_count, step_tokens,
-            self._state.total_used_tokens, self.effective_capacity,
+            self._state.step_count,
+            step_tokens,
+            self._state.total_used_tokens,
+            self.effective_capacity,
             self.utilization * 100,
         )
 
@@ -156,6 +160,7 @@ class ContextBudgetManager:
 
         Returns:
             BudgetCheckResult with allowed flag and status info.
+
         """
         current_util = self.utilization
 
@@ -176,10 +181,7 @@ class ContextBudgetManager:
         if current_util >= COMPACTION_THRESHOLD:
             return BudgetCheckResult(
                 allowed=True,
-                message=(
-                    f"Context budget high ({current_util:.0%}). "
-                    f"Compaction recommended."
-                ),
+                message=(f"Context budget high ({current_util:.0%}). Compaction recommended."),
                 utilization=current_util,
                 effective_capacity=self.effective_capacity,
                 used_tokens=self._state.total_used_tokens,
@@ -235,6 +237,7 @@ class ContextBudgetManager:
 
         Returns:
             True if the step fits within effective capacity.
+
         """
         projected = self._state.total_used_tokens + estimated_tokens
         return projected <= self.effective_capacity

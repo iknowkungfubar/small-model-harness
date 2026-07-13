@@ -1,5 +1,4 @@
-"""
-Small-Model Harness — MCP Server
+"""Small-Model Harness — MCP Server
 
 Provides tools for context budget management, task classification,
 and model routing.
@@ -26,7 +25,9 @@ from pathlib import Path
 
 # Ensure the server can import sibling modules
 _server_dir = Path(__file__).parent.resolve()
+_plugin_dir = _server_dir.parent / "hermes-plugin"
 sys.path.insert(0, str(_server_dir))
+sys.path.insert(0, str(_plugin_dir))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,10 +41,15 @@ except ImportError:
     logger.error("FastMCP not installed. Run: pip install fastmcp")
     sys.exit(1)
 
-from context_commands import harness_context_status as _status_impl
+from confidence import estimate_confidence
 from context_commands import harness_compact as _compact_impl
+from context_commands import harness_context_status as _status_impl
+from guardrails import check_input, check_output
 from routing_commands import harness_classify_task as _classify_impl
 from routing_commands import harness_route as _route_impl
+from verification import check_consistency
+
+_guardrails_available = True
 
 # ---------------------------------------------------------------------------
 # FastMCP Application
@@ -84,6 +90,7 @@ def harness_context_status(
         - compactions: Number of compactions performed
         - status: "normal" | "elevated" | "warning" | "critical"
         - recommendation: Human-readable guidance
+
     """
     return _status_impl(session_id=session_id, stated_window=stated_window)
 
@@ -112,6 +119,7 @@ def harness_compact(
         - steps_before: Original step count
         - steps_after: New step count (summary + intact)
         - session_id: The session that was compacted
+
     """
     return _compact_impl(session_id=session_id, sliding_window=sliding_window)
 
@@ -131,6 +139,7 @@ def harness_classify_task(
 
     Returns:
         JSON string with the classification TaskProfile.
+
     """
     return _classify_impl(task=task)
 
@@ -158,6 +167,7 @@ def harness_route(
 
     Returns:
         JSON string with routing decision.
+
     """
     return _route_impl(
         task=task,
@@ -181,18 +191,174 @@ def harness_reset(
 
     Returns:
         JSON string confirming the reset.
+
     """
-    from context_commands import _SESSIONS, _SESSION_STEPS
+    from context_commands import _SESSION_STEPS, _SESSIONS
 
     _SESSIONS.pop(session_id, None)
     _SESSION_STEPS.pop(session_id, None)
 
     import json
+
     return json.dumps({
         "action": "reset",
         "session_id": session_id,
         "result": "ok",
     })
+
+
+@app.tool(
+    description="Estimate confidence in model responses using token probabilities and semantic entropy"
+)
+def harness_estimate_confidence(
+    responses_json: str,
+    logprobs_json: str | None = None,
+) -> str:
+    """Estimate a unified confidence score (0.0–1.0) for one or more model responses.
+
+    Combines token-level probability signals (when logprobs available)
+    and semantic dispersion across multiple responses to produce a
+    confidence score with routing recommendation.
+
+    Args:
+        responses_json: JSON array of response dicts or strings, e.g.
+            [{"text": "response 1"}, {"text": "response 2"}]
+        logprobs_json: Optional JSON array of full API response objects
+            containing logprobs (OpenAI-compatible format).
+
+    Returns:
+        JSON string with confidence_score, recommendation,
+        signal_flags, semantic_dispersion, and token_stats.
+
+    """
+    import json
+
+    try:
+        responses = json.loads(responses_json)
+        if not isinstance(responses, list):
+            return json.dumps({"error": "responses_json must be a JSON array"})
+    except (json.JSONDecodeError, TypeError) as e:
+        return json.dumps({"error": f"Failed to parse responses_json: {e}"})
+
+    logprobs_responses = None
+    if logprobs_json:
+        try:
+            logprobs_responses = json.loads(logprobs_json)
+        except (json.JSONDecodeError, TypeError) as e:
+            return json.dumps({"error": f"Failed to parse logprobs_json: {e}"})
+
+    try:
+        result = estimate_confidence(
+            responses=responses,
+            logprobs_responses=logprobs_responses,
+        )
+        return json.dumps({
+            "confidence_score": result.confidence_score,
+            "recommendation": result.recommendation,
+            "signal_flags": result.signal_flags,
+            "semantic_dispersion": result.semantic_dispersion,
+            "n_responses": result.n_responses,
+            "n_clusters": result.n_clusters,
+            "cluster_sizes": result.cluster_sizes,
+            "has_token_stats": result.token_stats is not None,
+            "token_mean_probability": result.token_stats.mean_probability
+            if result.token_stats
+            else None,
+        })
+    except Exception as e:
+        return json.dumps({"error": f"Confidence estimation failed: {e}"})
+
+
+@app.tool(description="Verify consistency across multiple model responses")
+def harness_verify_consistency(
+    responses_json: str,
+    key_fields: str | None = None,
+) -> str:
+    """Check self-consistency across multiple responses.
+
+    Compares specified (or auto-detected) fields across N responses
+    and reports agreement ratio, anomalies, and field-level comparisons.
+
+    Args:
+        responses_json: JSON array of response dicts or strings.
+        key_fields: Optional comma-separated list of fields to compare.
+            Auto-detected from response structure if omitted.
+
+    Returns:
+        JSON string with is_consistent, agreement_ratio, anomalies,
+        and field-level comparisons.
+
+    """
+    import json
+
+    try:
+        responses = json.loads(responses_json)
+        if not isinstance(responses, list):
+            return json.dumps({"error": "responses_json must be a JSON array"})
+    except (json.JSONDecodeError, TypeError) as e:
+        return json.dumps({"error": f"Failed to parse responses_json: {e}"})
+
+    field_list = key_fields.split(",") if key_fields else None
+
+    try:
+        result = check_consistency(responses=responses, key_fields=field_list)
+        return json.dumps({
+            "is_consistent": result.is_consistent,
+            "confidence": result.confidence,
+            "agreement_ratio": result.agreement_ratio,
+            "total_fields": result.total_fields,
+            "matching_fields": result.matching_fields,
+            "anomalies": result.anomalies,
+            "comparisons": [
+                {
+                    "field_name": c.field_name,
+                    "all_match": c.all_match,
+                    "agreement_ratio": c.agreement_ratio,
+                }
+                for c in result.comparisons
+            ],
+        })
+    except Exception as e:
+        return json.dumps({"error": f"Consistency check failed: {e}"})
+
+
+@app.tool(description="Run input or output guardrails on text")
+def harness_check_guardrails(
+    mode: str,
+    text: str,
+) -> str:
+    """Run guardrail checks on user input or model output.
+
+    Supports input guardrails (injection detection, jailbreak, PII)
+    and output guardrails (PII leakage, topic boundaries, argument
+    validation).
+
+    Args:
+        mode: "input" for user input checks, "output" for model output checks.
+        text: The text to check (plain string or JSON).
+
+    Returns:
+        JSON string with passed, score, flags, and recommendation.
+
+    """
+    import json
+
+    try:
+        if mode == "input":
+            result = check_input(text)
+        elif mode == "output":
+            result = check_output(text)
+        else:
+            return json.dumps({"error": "mode must be 'input' or 'output'"})
+
+        return json.dumps({
+            "passed": result.passed,
+            "score": result.score,
+            "flags": result.flags,
+            "recommendation": result.recommendation,
+        })
+    except Exception as e:
+        return json.dumps({"error": f"Guardrail check failed: {e}"})
 
 
 # ---------------------------------------------------------------------------

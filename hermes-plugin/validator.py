@@ -1,5 +1,4 @@
-"""
-Schema Validator — pre-call validation for tool arguments.
+"""Schema Validator — pre-call validation for tool arguments.
 
 Validates tool call arguments against expected schemas before the
 call is dispatched to the model. Catches format drift early —
@@ -20,8 +19,8 @@ Supports:
 
 from __future__ import annotations
 
-import re
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -36,6 +35,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ValidationResult:
     """Result of a tool call schema validation."""
+
     valid: bool
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -246,6 +246,7 @@ class SchemaValidator:
 
         Returns:
             ValidationResult with valid flag and errors/warnings.
+
         """
         result = ValidationResult(valid=True)
 
@@ -262,9 +263,7 @@ class SchemaValidator:
         required = schema.get("required", [])
         for field_name in required:
             if field_name not in args or args[field_name] is None:
-                result.errors.append(
-                    f"Missing required field '{field_name}' for '{tool_name}'"
-                )
+                result.errors.append(f"Missing required field '{field_name}' for '{tool_name}'")
 
         # 2. Property validation
         properties = schema.get("properties", {})
@@ -302,17 +301,11 @@ class SchemaValidator:
         if isinstance(value, str):
             min_length = schema.get("min_length")
             if min_length is not None and len(value) < min_length:
-                return (
-                    f"'{field_name}' too short: "
-                    f"{len(value)} < {min_length}"
-                )
+                return f"'{field_name}' too short: {len(value)} < {min_length}"
 
             max_length = schema.get("max_length")
             if max_length is not None and len(value) > max_length:
-                return (
-                    f"'{field_name}' too long: "
-                    f"{len(value)} > {max_length}"
-                )
+                return f"'{field_name}' too long: {len(value)} > {max_length}"
 
             pattern = schema.get("pattern")
             if pattern and not re.match(pattern, value):
@@ -322,17 +315,11 @@ class SchemaValidator:
         if isinstance(value, (int, float)):
             minimum = schema.get("minimum")
             if minimum is not None and value < minimum:
-                return (
-                    f"'{field_name}' below minimum: "
-                    f"{value} < {minimum}"
-                )
+                return f"'{field_name}' below minimum: {value} < {minimum}"
 
             maximum = schema.get("maximum")
             if maximum is not None and value > maximum:
-                return (
-                    f"'{field_name}' above maximum: "
-                    f"{value} > {maximum}"
-                )
+                return f"'{field_name}' above maximum: {value} > {maximum}"
 
         # Enum validation
         enum_values = schema.get("enum")
@@ -346,16 +333,10 @@ class SchemaValidator:
         if isinstance(value, list):
             min_items = schema.get("min_items")
             if min_items is not None and len(value) < min_items:
-                return (
-                    f"'{field_name}' has too few items: "
-                    f"{len(value)} < {min_items}"
-                )
+                return f"'{field_name}' has too few items: {len(value)} < {min_items}"
             max_items = schema.get("max_items")
             if max_items is not None and len(value) > max_items:
-                return (
-                    f"'{field_name}' has too many items: "
-                    f"{len(value)} > {max_items}"
-                )
+                return f"'{field_name}' has too many items: {len(value)} > {max_items}"
 
         return None
 

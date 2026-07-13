@@ -1,5 +1,4 @@
-"""
-Context Commands — MCP server tool implementations for the small-model-harness.
+"""Context Commands — MCP server tool implementations for the small-model-harness.
 
 Provides:
 - compact_context(): Sliding-window compaction engine
@@ -15,12 +14,12 @@ from __future__ import annotations
 
 import json
 import logging
-from collections import Counter
-from typing import Any
 
 # Import the plugin's budget manager for consistent budget tracking
 import sys
+from collections import Counter
 from pathlib import Path
+from typing import Any
 
 # Add plugin directory to path so we can reuse ContextBudgetManager
 _PLUGIN_DIR = Path(__file__).parent.parent.parent / "plugins" / "small-model-harness"
@@ -83,6 +82,7 @@ def _generate_summary(steps: list[dict]) -> str:
 
     Returns:
         A compact structured string (~200-500 tokens worth of text).
+
     """
     if not steps:
         return "No steps to summarize."
@@ -134,6 +134,7 @@ def compact_context(
             steps_after: New step count (1 summary + intact)
             tokens_freed: Estimated tokens freed by compaction
             steps: The new compacted step list (or original if no compaction needed)
+
     """
     if not steps:
         return {
@@ -206,6 +207,7 @@ def harness_context_status(
 
     Returns:
         JSON string with budget status fields.
+
     """
     budget = _get_or_create_budget(session_id, stated_window)
     stats = budget.stats()
@@ -244,6 +246,7 @@ def harness_compact(
 
     Returns:
         JSON string with compaction results (tokens freed, step counts).
+
     """
     if session_id not in _SESSION_STEPS:
         return json.dumps({

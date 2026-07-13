@@ -1,5 +1,4 @@
-"""
-Circuit Breaker — 3-state breaker for small model failure escalation.
+"""Circuit Breaker — 3-state breaker for small model failure escalation.
 
 Monitors loop detection scores and breaks the execution chain before
 the model enters a catastrophic doom loop. Three states:
@@ -13,9 +12,9 @@ On consecutive breaks: permanently escalates to human review.
 
 from __future__ import annotations
 
-import time
 import logging
-from dataclasses import dataclass, field
+import time
+from dataclasses import dataclass
 from typing import Literal
 
 logger = logging.getLogger(__name__)
@@ -31,10 +30,11 @@ EscalationAction = Literal["allow", "block", "escalate_tier", "escalate_human", 
 @dataclass
 class CircuitDecision:
     """Decision from the circuit breaker."""
+
     action: EscalationAction
     state: BreakerState
     message: str = ""
-    retry_after: float = 0.0   # seconds until half-open retry allowed
+    retry_after: float = 0.0  # seconds until half-open retry allowed
     escalation_count: int = 0
     target_tier: int | None = None  # suggested model tier on escalate
 
@@ -106,6 +106,7 @@ class CircuitBreaker:
 
         Returns:
             CircuitDecision with the recommended action.
+
         """
         if self._state == "open":
             return self._handle_open()
@@ -116,7 +117,7 @@ class CircuitBreaker:
         # CLOSED state
         if loop_score >= self.loop_threshold:
             return self._trip_breaker(loop_score)
-        elif loop_score >= self.loop_threshold * 0.7:
+        if loop_score >= self.loop_threshold * 0.7:
             # Warning zone — don't break but return advisory
             return CircuitDecision(
                 action="allow",
@@ -202,7 +203,8 @@ class CircuitBreaker:
             logger.info(
                 "CircuitBreaker: cooling period elapsed (%.1fs >= %.1fs) — "
                 "transitioning to HALF_OPEN",
-                elapsed, self.cooling_seconds,
+                elapsed,
+                self.cooling_seconds,
             )
             self._state = "half_open"
             return CircuitDecision(
@@ -230,8 +232,7 @@ class CircuitBreaker:
             self._break_count += 1
 
             logger.warning(
-                "CircuitBreaker: HALF_OPEN trial failed (score=%.2f) — "
-                "returning to OPEN",
+                "CircuitBreaker: HALF_OPEN trial failed (score=%.2f) — returning to OPEN",
                 loop_score,
             )
 
