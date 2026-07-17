@@ -121,6 +121,12 @@ uv run pytest tests/ -v
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-07-28","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | python3 mcp-server/server.py
 ```
 
+## CI/CD
+
+| Workflow | Status |
+|----------|--------|
+| CodeQL | [![CodeQL](https://github.com/iknowkungfubar/small-model-harness/actions/workflows/codeql.yml/badge.svg)](https://github.com/iknowkungfubar/small-model-harness/actions/workflows/codeql.yml) |
+
 ## License
 
 MIT
