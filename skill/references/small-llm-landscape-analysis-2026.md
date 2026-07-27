@@ -453,17 +453,17 @@ hooks:
 ```python
 async def pre_tool_call(tool_name: str, args: dict, context: dict) -> dict:
     """Validate tool call before execution.
-    
+
     Returns:
         {"action": "allow"}
-        {"action": "block", "reason": "..."} 
+        {"action": "block", "reason": "..."}
         {"action": "escalate", "reason": "..."}
     """
     # 1. Schema validation
     schema_result = validate_schema(tool_name, args)
     if not schema_result.valid:
         return {"action": "block", "reason": f"Schema mismatch: {schema_result.error}"}
-    
+
     # 2. Loop pattern detection
     loop_score = detect_loop_pattern(tool_name, args, context["recent_calls"])
     if loop_score > 0.8:
@@ -473,13 +473,19 @@ async def pre_tool_call(tool_name: str, args: dict, context: dict) -> dict:
             return {"action": "block", "reason": "Circuit breaker open. Cooling period active."}
         elif loop_score > 0.9:
             open_circuit(context["session_id"])
-            return {"action": "escalate", "reason": "Loop detected. Escalating to higher model tier."}
-    
+            return {
+                "action": "escalate",
+                "reason": "Loop detected. Escalating to higher model tier.",
+            }
+
     # 3. Budget check
     budget = get_context_budget(context["session_id"])
     if budget.used > budget.effective_capacity:
-        return {"action": "delay", "reason": "Context budget exceeded. Compacting before next call."}
-    
+        return {
+            "action": "delay",
+            "reason": "Context budget exceeded. Compacting before next call.",
+        }
+
     return {"action": "allow"}
 ```
 

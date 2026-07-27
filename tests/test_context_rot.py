@@ -7,8 +7,6 @@ for small-model context management (Chroma 1/3 effective window rule).
 from __future__ import annotations
 
 import json
-import math
-import pytest
 from pathlib import Path
 
 _here = Path(__file__).resolve().parent
@@ -18,12 +16,11 @@ import sys
 sys.path.insert(0, str(_server_dir))
 
 from context_commands import (
-    compute_context_rot_risk,
-    update_rot_state,
-    mark_compaction,
     _SESSION_ROT,
+    compute_context_rot_risk,
+    mark_compaction,
+    update_rot_state,
 )
-from context_budget import ContextBudgetManager
 
 
 class TestComputeContextRotRisk:

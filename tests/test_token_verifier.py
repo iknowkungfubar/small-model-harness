@@ -6,8 +6,6 @@ that scores each token against source evidence.
 
 from __future__ import annotations
 
-import math
-import pytest
 from pathlib import Path
 
 _here = Path(__file__).resolve().parent
@@ -17,11 +15,11 @@ import sys
 sys.path.insert(0, str(_server_dir))
 
 from token_verifier import (
+    TokenSpan,
     TokenVerifier,
     TokenVerifierConfig,
     check_span_grounding,
     compute_evidence_score,
-    TokenSpan,
 )
 
 

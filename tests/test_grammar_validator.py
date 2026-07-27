@@ -6,8 +6,6 @@ Detects structural repetitions and penalizes anchor tokens driving loops.
 
 from __future__ import annotations
 
-import math
-import pytest
 from pathlib import Path
 
 _here = Path(__file__).resolve().parent
@@ -18,10 +16,10 @@ sys.path.insert(0, str(_server_dir))
 
 from grammar_validator import (
     GrammarValidator,
-    ValidatorConfig,
     PushdownAutomaton,
-    detect_structural_repetition,
+    ValidatorConfig,
     compute_repetition_penalty,
+    detect_structural_repetition,
 )
 
 

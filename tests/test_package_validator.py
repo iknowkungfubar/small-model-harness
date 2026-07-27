@@ -6,8 +6,6 @@ Runtime validation of package names against known registries.
 
 from __future__ import annotations
 
-import math
-import pytest
 from pathlib import Path
 
 _here = Path(__file__).resolve().parent
@@ -17,12 +15,11 @@ import sys
 sys.path.insert(0, str(_server_dir))
 
 from package_validator import (
+    PackageRegistry,
     PackageValidator,
     PackageValidatorConfig,
     check_package_on_pypi,
-    check_package_on_npm,
     normalize_package_name,
-    PackageRegistry,
 )
 
 

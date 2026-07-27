@@ -9,7 +9,6 @@ self-reinforcing directions.
 from __future__ import annotations
 
 import math
-import pytest
 from pathlib import Path
 
 _here = Path(__file__).resolve().parent
@@ -19,11 +18,11 @@ import sys
 sys.path.insert(0, str(_server_dir))
 
 from value_regularizer import (
-    ValueRegularizer,
     RegularizerConfig,
+    ValueRegularizer,
+    apply_dampening_kernel,
     calculate_correlation_dimension,
     detect_geometric_collapse,
-    apply_dampening_kernel,
 )
 
 

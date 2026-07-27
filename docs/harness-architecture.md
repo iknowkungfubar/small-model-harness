@@ -112,7 +112,7 @@ def classify_task(task: str, tools: list[str]) -> TaskProfile:
     """Classify task complexity without an LLM call."""
     score = 0
     reasoning_depth = "none"
-    
+
     # Heuristics
     if any(word in task.lower() for word in ["debug", "explain", "why", "diagnose"]):
         score += 2
@@ -122,13 +122,13 @@ def classify_task(task: str, tools: list[str]) -> TaskProfile:
         reasoning_depth = "deep"
     if any(word in task.lower() for word in ["security", "vulnerability", "exploit"]):
         score += 2  # don't automatically route security to large model
-    
+
     tool_count = len(tools)
     if tool_count > 5:
         score += 2
     elif tool_count > 2:
         score += 1
-    
+
     # Complexity bucket
     if score <= 2:
         complexity = "simple"
@@ -138,21 +138,21 @@ def classify_task(task: str, tools: list[str]) -> TaskProfile:
         complexity = "complex"
     else:
         complexity = "critical"
-    
+
     # Tier assignment
     tier_map = {
         "simple": "t1",
         "moderate": "t2",
         "complex": "t3",
-        "critical": "t3"  # escalate through cascade if needed
+        "critical": "t3",  # escalate through cascade if needed
     }
-    
+
     return TaskProfile(
         tier=tier_map[complexity],
         complexity=complexity,
         reasoning_depth=reasoning_depth,
         tool_count=tool_count,
-        score=score
+        score=score,
     )
 ```
 
@@ -176,67 +176,66 @@ def classify_task(task: str, tools: list[str]) -> TaskProfile:
 ```python
 def validate_tool_call(tool_name: str, args: dict, session: Session) -> ValidationResult:
     """Run all validation checks and return result."""
-    
+
     # 1. Schema validation
     schema = get_tool_schema(tool_name)
     if not schema:
         return ValidationResult(valid=False, reason=f"Unknown tool: {tool_name}")
-    
+
     schema_errors = validate_against_schema(args, schema)
     if schema_errors:
         return ValidationResult(valid=False, reason=str(schema_errors))
-    
+
     # 2. Loop pattern detection
     loop_score = detection_ensemble(session.recent_calls, tool_name, args)
     if loop_score > 0.9:
         return ValidationResult(
-            valid=False, reason="Loop detected (confidence: {loop_score:.2f})",
-            escalate=True
+            valid=False, reason="Loop detected (confidence: {loop_score:.2f})", escalate=True
         )
-    
+
     # 3. Duplicate call detection
     if session.recent_calls and len(session.recent_calls) >= 2:
         last_two = session.recent_calls[-2:]
         if all(c.tool == tool_name and c.args == args for c in last_two):
-            return ValidationResult(
-                valid=False, reason="Same tool call repeated consecutively"
-            )
-    
+            return ValidationResult(valid=False, reason="Same tool call repeated consecutively")
+
     # 4. Budget check
     budget = session.context_budget
     effective_capacity = budget.stated_window * 0.33
     if budget.used_tokens > effective_capacity * 0.9:
         return ValidationResult(
-            valid=False, reason="Context budget exceeded 90% of effective capacity. Compact first.",
-            needs_compaction=True
+            valid=False,
+            reason="Context budget exceeded 90% of effective capacity. Compact first.",
+            needs_compaction=True,
         )
-    
+
     return ValidationResult(valid=True)
 ```
 
 **Doom loop detection ensemble:**
 
 ```python
-def detection_ensemble(recent_calls: list[CallRecord], 
-                       current_tool: str, current_args: dict) -> float:
+def detection_ensemble(
+    recent_calls: list[CallRecord], current_tool: str, current_args: dict
+) -> float:
     """Weighted ensemble of 4 detection signals. Returns 0.0-1.0."""
-    
+
     if len(recent_calls) < 4:
         return 0.0  # not enough history
-    
+
     scores = []
-    
+
     # Signal 1: Token repetition (40% weight)
     outputs = [c.output for c in recent_calls[-5:]]
     ngram_overlap = compute_ngram_overlap(outputs, n=4)  # 4-gram
     scores.append((ngram_overlap, 0.4))
-    
+
     # Signal 2: Tool call diversity (30% weight)
     recent_tools = [c.tool for c in recent_calls[-8:]]
     unique_ratio = len(set(recent_tools)) / max(len(recent_tools), 1)
     tool_diversity_score = 1.0 - unique_ratio  # low diversity → high loop risk
     scores.append((tool_diversity_score, 0.3))
-    
+
     # Signal 3: Latency stability (15% weight)
     recent_latencies = [c.latency for c in recent_calls[-5:]]
     if recent_latencies:
@@ -245,13 +244,13 @@ def detection_ensemble(recent_calls: list[CallRecord],
         cv = latency_std / max(latency_mean, 1)  # coefficient of variation
         stability_score = 1.0 - min(cv, 1.0)  # very stable → suspicious (deterministic loop)
         scores.append((stability_score, 0.15))
-    
+
     # Signal 4: Content stagnation (15% weight)
     if len(recent_calls) >= 4:
         outputs_trimmed = [c.output[:200] for c in recent_calls[-4:]]
         semantic_sim = compute_semantic_similarity(outputs_trimmed)
         scores.append((semantic_sim, 0.15))
-    
+
     return sum(score * weight for score, weight in scores)
 ```
 
@@ -308,7 +307,7 @@ def build_grammar(tool_schemas: list[dict]) -> str:
     """Build a GBNF grammar that constrains output to valid tool calls."""
     # For each tool, generate:
     #   tool-name "(" json-schema-args ")"
-    # 
+    #
     # Combined grammar:
     #   root ::= tool-call
     #   tool-call ::= tool-name "(" json-object ")"
@@ -318,7 +317,7 @@ def build_grammar(tool_schemas: list[dict]) -> str:
     #   key ::= "\"" string "\""
     #   value ::= string | number | boolean | "null" | "[" values "]" | "{" object "}"
     #   ... (schema-specific constraints)
-    
+
     # Key optimization: compile once, cache by schema hash
     grammar = compile_to_gbnf(tool_schemas)
     return grammar
@@ -361,11 +360,11 @@ def build_grammar(tool_schemas: list[dict]) -> str:
 ```python
 class SessionCircuitBreaker:
     """Per-session circuit breaker state."""
-    
+
     STATE_CLOSED = "closed"
     STATE_OPEN = "open"
     STATE_HALF_OPEN = "half_open"
-    
+
     def __init__(self, session_id: str):
         self.session_id = session_id
         self.state = self.STATE_CLOSED
@@ -375,35 +374,45 @@ class SessionCircuitBreaker:
         self.max_breaks = 5
         self.max_breaks_window = 600  # 10 minutes
         self.break_times: list[float] = []
-        
+
     def check(self, loop_score: float) -> CircuitDecision:
         """Check if this request can proceed."""
         # Window maintenance
         now = time.time()
         self.break_times = [t for t in self.break_times if now - t < self.max_breaks_window]
-        
+
         if self.state == self.STATE_OPEN:
             if now - self.last_break_time > self.cooling_period:
                 self.state = self.STATE_HALF_OPEN
                 return CircuitDecision(allow=True, state=self.state, note="Half-open test")
-            return CircuitDecision(allow=False, state=self.state, 
-                                   note=f"Cooling: {int(self.cooling_period - (now - self.last_break_time))}s remaining")
-        
+            return CircuitDecision(
+                allow=False,
+                state=self.state,
+                note=f"Cooling: {int(self.cooling_period - (now - self.last_break_time))}s remaining",
+            )
+
         if loop_score > 0.8:
             self.break_count += 1
             self.break_times.append(now)
             self.last_break_time = now
-            
+
             if self.break_count >= self.max_breaks:
-                return CircuitDecision(allow=False, state=self.STATE_OPEN,
-                                       note="Max breaks exceeded. Locking to T4 for session.",
-                                       escalate=True, tier_override="t4")
-            
+                return CircuitDecision(
+                    allow=False,
+                    state=self.STATE_OPEN,
+                    note="Max breaks exceeded. Locking to T4 for session.",
+                    escalate=True,
+                    tier_override="t4",
+                )
+
             self.state = self.STATE_OPEN
-            return CircuitDecision(allow=False, state=self.STATE_OPEN,
-                                   note=f"Loop detected (score: {loop_score:.2f}). Broken.",
-                                   escalate=True)
-        
+            return CircuitDecision(
+                allow=False,
+                state=self.STATE_OPEN,
+                note=f"Loop detected (score: {loop_score:.2f}). Broken.",
+                escalate=True,
+            )
+
         return CircuitDecision(allow=True, state=self.state)
 ```
 
@@ -447,35 +456,37 @@ class SessionCircuitBreaker:
 ```python
 def compact_context(session: Session) -> CompactionResult:
     """Compact session context to free budget. Returns new token count."""
-    
+
     steps = session.steps
     keep_last = session.sliding_window_steps  # default 5
-    
+
     if len(steps) <= keep_last:
         return CompactionResult(
-            steps_before=len(steps), steps_after=len(steps),
-            tokens_freed=0, note="Too few steps to compact"
+            steps_before=len(steps),
+            steps_after=len(steps),
+            tokens_freed=0,
+            note="Too few steps to compact",
         )
-    
+
     # Identify steps to summarize
     summarize_steps = steps[:-keep_last]
     intact_steps = steps[-keep_last:]
-    
+
     # Generate summary
     summary = summarize_steps_to_bullets(summarize_steps)
     # summary is a compact structured string: ~200-500 tokens
-    
+
     # Replace summarized steps with single summary step
     session.steps = [SummaryStep(content=summary)] + intact_steps
-    
+
     tokens_before = sum(s.tokens for s in summarize_steps)
     tokens_after = estimate_tokens(summary)
-    
+
     return CompactionResult(
         steps_before=len(summarize_steps),
         steps_after=1,
         tokens_freed=tokens_before - tokens_after,
-        new_active_tokens=tokens_after + sum(s.tokens for s in intact_steps)
+        new_active_tokens=tokens_after + sum(s.tokens for s in intact_steps),
     )
 ```
 
@@ -485,21 +496,21 @@ def compact_context(session: Session) -> CompactionResult:
 @dataclass
 class ContextBudget:
     session_id: str
-    stated_window: int       # e.g., 131072 for 128K model
+    stated_window: int  # e.g., 131072 for 128K model
     effective_capacity: int  # stated_window * 0.33
-    used_tokens: int         # current active context tokens
+    used_tokens: int  # current active context tokens
     step_count: int
     compaction_count: int
     last_compaction_at: Optional[float]
-    
+
     @property
     def utilization(self) -> float:
         return self.used_tokens / self.effective_capacity
-    
-    @property 
+
+    @property
     def needs_compaction(self) -> bool:
         return self.utilization > 0.9 or self.step_count > 25
-    
+
     @property
     def output_headroom(self) -> int:
         return int(self.effective_capacity * 0.1)  # 10% reserved for output

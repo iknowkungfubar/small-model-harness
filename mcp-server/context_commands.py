@@ -47,7 +47,11 @@ def _get_or_create_budget(session_id: str, stated_window: int = 32000) -> Contex
     if session_id not in _SESSIONS:
         _SESSIONS[session_id] = ContextBudgetManager(model_window=stated_window)
         _SESSION_STEPS[session_id] = []
-        _SESSION_ROT[session_id] = {"peak_utilization": 0.0, "compaction_count": 0, "sustained_steps": 0}
+        _SESSION_ROT[session_id] = {
+            "peak_utilization": 0.0,
+            "compaction_count": 0,
+            "sustained_steps": 0,
+        }
     return _SESSIONS[session_id]
 
 
@@ -103,6 +107,7 @@ def compute_context_rot_risk(
 
     Returns:
         Risk score 0.0 (safe) to 1.0 (critical).
+
     """
     # 1. Effective window breach
     effective_limit = effective_window_ratio
@@ -127,10 +132,10 @@ def compute_context_rot_risk(
 
     # Combined: weighted sum
     risk = (
-        eff_factor * 0.5 +         # Effective window breach: most important
-        peak_factor * 0.2 +         # Peak utilization stress
-        sustained_factor * 0.2 +    # Sustained high usage
-        compaction_factor * 0.1     # Compaction fatigue
+        eff_factor * 0.5  # Effective window breach: most important
+        + peak_factor * 0.2  # Peak utilization stress
+        + sustained_factor * 0.2  # Sustained high usage
+        + compaction_factor * 0.1  # Compaction fatigue
     )
 
     return round(min(1.0, risk), 4)
@@ -140,11 +145,14 @@ def update_rot_state(session_id: str, utilization: float) -> None:
     """Update rotation tracking state for a session."""
     rot = _SESSION_ROT.get(session_id)
     if rot is None:
-        _SESSION_ROT[session_id] = {"peak_utilization": utilization, "compaction_count": 0, "sustained_steps": 0}
+        _SESSION_ROT[session_id] = {
+            "peak_utilization": utilization,
+            "compaction_count": 0,
+            "sustained_steps": 0,
+        }
         return
 
-    if utilization > rot["peak_utilization"]:
-        rot["peak_utilization"] = utilization
+    rot["peak_utilization"] = max(rot["peak_utilization"], utilization)
 
     # Increment sustained steps when utilization is elevated
     if utilization > _EFFECTIVE_WINDOW_RATIO:
@@ -159,7 +167,6 @@ def mark_compaction(session_id: str) -> None:
     rot = _SESSION_ROT.get(session_id)
     if rot is not None:
         rot["compaction_count"] = rot["compaction_count"] + 1  # type: ignore[operator]
-
 
 
 def _generate_summary(steps: list[dict]) -> str:
