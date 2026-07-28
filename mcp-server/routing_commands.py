@@ -544,7 +544,7 @@ def route_task(
     max_idx = min(TIER_KEYS.index(max(available_tiers)), len(TIER_KEYS) - 1)
 
     # Determine action
-    tier_value = lambda t: TIER_KEYS.index(t)  # noqa: E731
+    tier_value = lambda t: TIER_KEYS.index(t)
 
     if failure_count > 0:
         # On failure, escalate one tier up if possible
