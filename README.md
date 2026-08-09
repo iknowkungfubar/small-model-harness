@@ -112,7 +112,7 @@ mcp_servers:
 
 ```bash
 # Setup
-uv sync --group dev
+uv sync --extra dev
 
 # Run tests
 uv run pytest tests/ -v
