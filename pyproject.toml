@@ -3,7 +3,7 @@ name = "small-model-harness"
 version = "1.0.0"
 description = "Defensive harness for 1B-12B local LLMs in production agentic workflows"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
     { name = "Joshua Barker", email = "josh@turintechsolutions.com" },
 ]
